@@ -16,5 +16,28 @@ services:
     App\:
         resource: '../src/'
 
-    # add more service definitions when explicit configuration is needed
-    # please note that last definitions always *replace* previous ones
+    # === HEXAGONAL ARCHITECTURE BINDINGS ===
+    # Bind domain interfaces to infrastructure implementations
+
+    # Repository bindings (Ports → Adapters)
+    App\Domain\Repository\BookRepositoryInterface:
+        alias: App\Infrastructure\Doctrine\Repository\DoctrineBookRepository
+
+    App\Domain\Repository\UserRepositoryInterface:
+        alias: App\Infrastructure\Doctrine\Repository\DoctrineUserRepository
+
+    App\Domain\Repository\LoanRepositoryInterface:
+        alias: App\Infrastructure\Doctrine\Repository\DoctrineLoanRepository
+
+    # Application Services - explicit configuration for clarity
+    App\Application\Command\BorrowBookCommand:
+        arguments:
+            $bookRepository: '@App\Domain\Repository\BookRepositoryInterface'
+            $userRepository: '@App\Domain\Repository\UserRepositoryInterface'
+            $loanRepository: '@App\Domain\Repository\LoanRepositoryInterface'
+
+    App\Application\Command\ReturnBookCommand:
+        arguments:
+            $bookRepository: '@App\Domain\Repository\BookRepositoryInterface'
+            $userRepository: '@App\Domain\Repository\UserRepositoryInterface'
+            $loanRepository: '@App\Domain\Repository\LoanRepositoryInterface'
