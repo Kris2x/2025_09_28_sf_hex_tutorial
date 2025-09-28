@@ -7,16 +7,29 @@ namespace App\Domain\Entity;
 use App\Domain\ValueObject\BookId;
 use App\Domain\ValueObject\UserId;
 use DateTimeImmutable;
+use Doctrine\ORM\Mapping as ORM;
 
+#[ORM\Entity]
+#[ORM\Table(name: 'loans')]
 class Loan
 {
     private const LOAN_PERIOD_DAYS = 14;
+
+    #[ORM\Column(type: 'datetime_immutable', name: 'returned_at', nullable: true)]
     private ?DateTimeImmutable $returnedAt = null;
 
     public function __construct(
+        #[ORM\Id]
+        #[ORM\Column(type: 'string')]
         private string $id,
+
+        #[ORM\Column(type: 'user_id', name: 'user_id')]
         private UserId $userId,
+
+        #[ORM\Column(type: 'book_id', name: 'book_id')]
         private BookId $bookId,
+
+        #[ORM\Column(type: 'datetime_immutable', name: 'borrowed_at')]
         private DateTimeImmutable $borrowedAt
     ) {
     }

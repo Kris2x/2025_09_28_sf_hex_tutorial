@@ -6,16 +6,30 @@ namespace App\Domain\Entity;
 
 use App\Domain\ValueObject\BookId;
 use DateTimeImmutable;
+use Doctrine\ORM\Mapping as ORM;
 
+#[ORM\Entity]
+#[ORM\Table(name: 'books')]
 class Book
 {
+    #[ORM\Column(type: 'boolean')]
     private bool $isAvailable = true;
 
     public function __construct(
+        #[ORM\Id]
+        #[ORM\Column(type: 'book_id')]
         private BookId $id,
+
+        #[ORM\Column(type: 'string')]
         private string $title,
+
+        #[ORM\Column(type: 'string')]
         private string $author,
+
+        #[ORM\Column(type: 'string', unique: true)]
         private string $isbn,
+
+        #[ORM\Column(type: 'datetime_immutable', name: 'published_at')]
         private DateTimeImmutable $publishedAt
     ) {
     }

@@ -7,16 +7,29 @@ namespace App\Domain\Entity;
 use App\Domain\ValueObject\UserId;
 use App\Domain\ValueObject\Email;
 use DateTimeImmutable;
+use Doctrine\ORM\Mapping as ORM;
 
+#[ORM\Entity]
+#[ORM\Table(name: 'users')]
 class User
 {
+    #[ORM\Column(type: 'integer', name: 'active_loan_count')]
     private int $activeLoanCount = 0;
+
     private const MAX_ACTIVE_LOANS = 3;
 
     public function __construct(
+        #[ORM\Id]
+        #[ORM\Column(type: 'user_id')]
         private UserId $id,
+
+        #[ORM\Column(type: 'string')]
         private string $name,
+
+        #[ORM\Column(type: 'email', unique: true)]
         private Email $email,
+
+        #[ORM\Column(type: 'datetime_immutable', name: 'registered_at')]
         private DateTimeImmutable $registeredAt
     ) {
     }

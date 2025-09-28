@@ -196,13 +196,25 @@ class DoctrineBookRepository implements BookRepositoryInterface
 
 #### Book (Książka)
 ```php
+#[ORM\Entity]
+#[ORM\Table(name: 'books')]
 class Book
 {
     public function __construct(
+        #[ORM\Id]
+        #[ORM\Column(type: 'book_id')]
         private BookId $id,
+
+        #[ORM\Column(type: 'string')]
         private string $title,
+
+        #[ORM\Column(type: 'string')]
         private string $author,
+
+        #[ORM\Column(type: 'string', unique: true)]
         private string $isbn,
+
+        #[ORM\Column(type: 'datetime_immutable', name: 'published_at')]
         private DateTimeImmutable $publishedAt
     ) {}
 
@@ -375,6 +387,50 @@ class BorrowBookCommandTest extends TestCase
 
 ---
 
+## Kompromisy architektoniczne
+
+### Doctrine Attributes w encjach domenowych
+
+W idealnej architekturze hexagonalnej encje domenowe powinny być całkowicie niezależne od infrastruktury. W praktyce jednak stosujemy **pragmatyczny kompromis**:
+
+```php
+// ✅ Akceptowalny kompromis
+#[ORM\Entity]
+class Book
+{
+    #[ORM\Column(type: 'book_id')]
+    private BookId $id;
+}
+```
+
+**Dlaczego to akceptowalne:**
+- 🔧 **Prostota** - mniej boilerplate kodu
+- 🚀 **Produktywność** - szybszy development
+- 📖 **Czytelność** - mapping blisko encji
+- ⚖️ **Pragmatyzm** - korzyści > koszty
+
+**Alternatywy dla czystej architektury:**
+- XML/YAML mapping (skomplikowane w Symfony 6+)
+- Separate Infrastructure models (więcej kodu)
+- Custom mappers (dodatkowa złożoność)
+
+### Custom Doctrine Types
+
+Zachowujemy **Value Objects** przez Custom Types:
+
+```php
+// Infrastructure/Doctrine/Type/BookIdType.php
+class BookIdType extends Type
+{
+    public function convertToPHPValue($value, AbstractPlatform $platform): ?BookId
+    {
+        return $value ? new BookId($value) : null;
+    }
+}
+```
+
+To pozwala na **czyste API domenowe** z zachowaniem Value Objects.
+
 ## Podsumowanie
 
 Architektura hexagonalna zapewnia:
@@ -384,5 +440,6 @@ Architektura hexagonalna zapewnia:
 - ✅ **Wymienność komponentów** infrastrukturalnych
 - ✅ **Skalowalność** i utrzymywalność kodu
 - ✅ **Czytelność** i zgodność z domeną biznesową
+- ⚖️ **Pragmatyczne kompromisy** dla produktywności
 
-Projekt demonstruje wszystkie kluczowe elementy tej architektury w praktycznym przykładzie systemu biblioteki online.
+Projekt demonstruje wszystkie kluczowe elementy tej architektury w praktycznym przykładzie systemu biblioteki online, z rozsądnymi kompromisami dla realnych projektów.
