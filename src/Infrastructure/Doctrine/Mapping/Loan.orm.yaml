@@ -1,0 +1,21 @@
+App\Domain\Entity\Loan:
+    type: entity
+    table: loans
+    id:
+        id:
+            type: string
+            length: 36
+    fields:
+        userId:
+            type: user_id
+            column: user_id
+        bookId:
+            type: book_id
+            column: book_id
+        borrowedAt:
+            type: datetime_immutable
+            column: borrowed_at
+        returnedAt:
+            type: datetime_immutable
+            column: returned_at
+            nullable: true

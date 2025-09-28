@@ -1,0 +1,24 @@
+App\Domain\Entity\Book:
+    type: entity
+    table: books
+    id:
+        id:
+            type: book_id
+            length: 36
+    fields:
+        title:
+            type: string
+            length: 255
+        author:
+            type: string
+            length: 255
+        isbn:
+            type: string
+            length: 20
+            unique: true
+        publishedAt:
+            type: datetime_immutable
+            column: published_at
+        isAvailable:
+            type: boolean
+            column: is_available
