@@ -1,0 +1,62 @@
+<?php
+
+declare(strict_types=1);
+
+namespace App\Application\Command;
+
+use App\Domain\Repository\BookRepositoryInterface;
+use App\Domain\Repository\UserRepositoryInterface;
+use App\Domain\Repository\LoanRepositoryInterface;
+use App\Domain\Entity\Loan;
+use App\Domain\ValueObject\BookId;
+use App\Domain\ValueObject\UserId;
+use DateTimeImmutable;
+
+final readonly class BorrowBookCommand
+{
+    public function __construct(
+        private BookRepositoryInterface $bookRepository,
+        private UserRepositoryInterface $userRepository,
+        private LoanRepositoryInterface $loanRepository
+    ) {
+    }
+
+    public function execute(string $userId, string $bookId): void
+    {
+        $user = $this->userRepository->findById(new UserId($userId));
+        if (!$user) {
+            throw new \DomainException('User not found');
+        }
+
+        $book = $this->bookRepository->findById(new BookId($bookId));
+        if (!$book) {
+            throw new \DomainException('Book not found');
+        }
+
+        // Sprawdź reguły biznesowe
+        if (!$user->canBorrowBook()) {
+            throw new \DomainException('User has reached maximum loan limit');
+        }
+
+        if (!$book->isAvailable()) {
+            throw new \DomainException('Book is not available');
+        }
+
+        // Wykonaj operację biznesową
+        $user->borrowBook();
+        $book->borrow();
+
+        // Stwórz wypożyczenie
+        $loan = new Loan(
+            uniqid(), // W prawdziwej aplikacji użyj UUID
+            $user->id(),
+            $book->id(),
+            new DateTimeImmutable()
+        );
+
+        // Zapisz zmiany
+        $this->userRepository->save($user);
+        $this->bookRepository->save($book);
+        $this->loanRepository->save($loan);
+    }
+}
