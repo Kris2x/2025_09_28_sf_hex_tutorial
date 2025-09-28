@@ -37,11 +37,13 @@ final class BookController extends AbstractController
         Request $request,
         BorrowBookCommand $command
     ): JsonResponse {
-        $userId = $request->request->get('userId');
+        $data = json_decode($request->getContent(), true);
 
-        if (!$userId) {
+        if (!$data || !isset($data['userId'])) {
             return $this->json(['error' => 'userId is required'], 400);
         }
+
+        $userId = $data['userId'];
 
         try {
             $command->execute($userId, $bookId);
@@ -57,11 +59,13 @@ final class BookController extends AbstractController
         Request $request,
         ReturnBookCommand $command
     ): JsonResponse {
-        $userId = $request->request->get('userId');
+        $data = json_decode($request->getContent(), true);
 
-        if (!$userId) {
+        if (!$data || !isset($data['userId'])) {
             return $this->json(['error' => 'userId is required'], 400);
         }
+
+        $userId = $data['userId'];
 
         try {
             $fine = $command->execute($userId, $bookId);
