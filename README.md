@@ -648,11 +648,11 @@ final class BookController extends AbstractController
 │  │   HTTP       │                         │   Doctrine   │     │
 │  │  Controller  │                         │  Repository  │     │
 │  │  (Adapter)   │                         │  (Adapter)   │     │
-│  └──────┬───────┘                         └───────▲──────┘     │
+│  └──────┬───────┘                         └───────┬──────┘     │
 │         │                                         │             │
 │         │ używa                        implementuje             │
-│         ▼                                         │             │
-│  ┌──────────────┐                         ┌──────┴───────┐     │
+│         ▼                                         ▼             │
+│  ┌──────────────┐                         ┌──────────────┐     │
 │  │  Application │                         │  Repository  │     │
 │  │    Layer     │─────── używa ──────────►│  Interface   │     │
 │  │  (Use Cases) │                         │    (Port)    │     │
@@ -673,6 +673,9 @@ BookRepositoryInterface    ◄───  DoctrineBookRepository
 UserRepositoryInterface    ◄───  DoctrineUserRepository
                            ◄───  InMemoryUserRepository (testy)
                            ◄───  RedisUserRepository (cache)
+
+Strzałka ◄─── oznacza "implementuje" / "zależy od"
+Adapter ZALEŻY OD interfejsu (Port), nie odwrotnie!
 ```
 
 ### Rodzaje portów
