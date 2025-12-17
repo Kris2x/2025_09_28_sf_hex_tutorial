@@ -8,6 +8,11 @@ use App\Lending\Domain\Repository\LoanRepositoryInterface;
 use App\Lending\Domain\Entity\Loan;
 use App\Lending\Domain\ValueObject\UserId;
 
+/**
+ * Query: Pobranie aktywnych wypożyczeń użytkownika.
+ *
+ * Query tylko odczytuje dane - NIE modyfikuje stanu systemu.
+ */
 final readonly class GetUserLoansQuery
 {
     public function __construct(
@@ -15,7 +20,9 @@ final readonly class GetUserLoansQuery
     ) {
     }
 
-    /** @return Loan[] */
+    /**
+     * @return Loan[]
+     */
     public function execute(string $userId): array
     {
         return $this->loanRepository->findActiveByUserId(new UserId($userId));

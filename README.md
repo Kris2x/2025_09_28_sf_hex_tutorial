@@ -280,6 +280,19 @@ Konteksty komunikują się przez:
 
 ```
 src/
+├── Shared/                             # ══════════════════════════════
+│   │                                   # WSPÓŁDZIELONE MIĘDZY KONTEKSTAMI
+│   │                                   # ══════════════════════════════
+│   │
+│   ├── Domain/
+│   │   └── Event/                      # 📢 Domain Events (interfejsy)
+│   │       ├── DomainEventInterface.php
+│   │       └── EventPublisherInterface.php   # Port do publikacji eventów
+│   │
+│   └── Infrastructure/
+│       └── Messenger/
+│           └── MessengerEventPublisher.php   # Adapter - Symfony Messenger
+│
 ├── Lending/                            # ══════════════════════════════
 │   │                                   # BOUNDED CONTEXT: WYPOŻYCZENIA
 │   │                                   # ══════════════════════════════
@@ -298,6 +311,9 @@ src/
 │   │   │   ├── UserId.php              #   - Walidacja w konstruktorze
 │   │   │   └── Email.php               #   - Porównywanie przez wartość
 │   │   │
+│   │   ├── Event/                      # 📢 Domain Events (tego kontekstu)
+│   │   │   └── BookBorrowedEvent.php   #   - "Książka wypożyczona"
+│   │   │
 │   │   └── Repository/                 # 🔌 PORTY (interfejsy)
 │   │       ├── BookRepositoryInterface.php    # Kontrakt: "co" potrzebuję
 │   │       ├── UserRepositoryInterface.php    # NIE mówi "jak" to zrobić
@@ -307,9 +323,9 @@ src/
 │   │   │                               # Orkiestracja use cases
 │   │   │                               # Zależy TYLKO od Domain
 │   │   │
-│   │   ├── Command/                    # Komendy (zmieniają stan)
-│   │   │   ├── BorrowBookCommand.php   #   - Jeden use case = jedna klasa
-│   │   │   └── ReturnBookCommand.php   #   - Koordynuje encje domenowe
+│   │   ├── Command/                    # Komendy (modyfikują stan)
+│   │   │   ├── BorrowBookCommand.php   #   - Wypożycz + emituje event
+│   │   │   └── ReturnBookCommand.php   #   - Zwróć książkę
 │   │   │
 │   │   └── Query/                      # Zapytania (tylko odczyt)
 │   │       ├── GetAvailableBooksQuery.php
@@ -336,8 +352,13 @@ src/
 │       └── Controller/
 │           └── BookController.php      # REST API adapter
 │
-├── Catalog/                            # 📋 TODO: Kontekst Katalog
-│   └── README.md
+├── Catalog/                            # ══════════════════════════════
+│   │                                   # BOUNDED CONTEXT: KATALOG
+│   │                                   # ══════════════════════════════
+│   │
+│   └── Application/
+│       └── EventHandler/               # 👂 Nasłuchuje eventów z innych kontekstów
+│           └── UpdateBookPopularityOnBookBorrowed.php
 │
 ├── Membership/                         # 📋 TODO: Kontekst Członkostwo
 │   └── README.md
@@ -473,13 +494,28 @@ interface BookRepositoryInterface
 
 ---
 
-### 2. Application Layer - Orkiestracja
+### 2. Application Layer - Command i Query
 
 **Zasada:** Warstwa aplikacji koordynuje przepływ, ale NIE zawiera logiki biznesowej.
+
+#### Podział na Command i Query
+
+| Typ | Cel | Przykład |
+|-----|-----|----------|
+| **Command** | Modyfikuje stan systemu | BorrowBookCommand, ReturnBookCommand |
+| **Query** | Tylko odczytuje dane | GetAvailableBooksQuery, GetUserLoansQuery |
+
+#### Command - modyfikacja stanu
 
 ```php
 namespace App\Lending\Application\Command;
 
+/**
+ * Command: Wypożyczenie książki.
+ *
+ * Command MODYFIKUJE stan systemu.
+ * Orkiestruje przepływ - deleguje logikę biznesową do domeny.
+ */
 final readonly class BorrowBookCommand
 {
     public function __construct(
@@ -493,17 +529,9 @@ final readonly class BorrowBookCommand
     {
         // 1. Pobierz encje
         $user = $this->userRepository->findById(new UserId($userId));
-        if (!$user) {
-            throw new \DomainException('User not found');
-        }
-
         $book = $this->bookRepository->findById(new BookId($bookId));
-        if (!$book) {
-            throw new \DomainException('Book not found');
-        }
 
-        // 2. Deleguj logikę do DOMENY (nie implementuj jej tutaj!)
-        // ✅ Logika jest w encjach
+        // 2. Deleguj logikę do DOMENY
         if (!$user->canBorrowBook()) {
             throw new \DomainException('User has reached maximum loan limit');
         }
@@ -512,14 +540,9 @@ final readonly class BorrowBookCommand
         $user->borrowBook();
         $book->borrow();
 
-        $loan = new Loan(
-            uniqid(),
-            $user->id(),
-            $book->id(),
-            new DateTimeImmutable()
-        );
+        $loan = new Loan(/* ... */);
 
-        // 4. Zapisz zmiany (przez interfejsy!)
+        // 4. Zapisz zmiany
         $this->userRepository->save($user);
         $this->bookRepository->save($book);
         $this->loanRepository->save($loan);
@@ -527,13 +550,37 @@ final readonly class BorrowBookCommand
 }
 ```
 
-**Co Application Layer ROBI:**
+#### Query - tylko odczyt
+
+```php
+namespace App\Lending\Application\Query;
+
+/**
+ * Query: Pobranie dostępnych książek.
+ *
+ * Query TYLKO ODCZYTUJE dane - NIE modyfikuje stanu!
+ */
+final readonly class GetAvailableBooksQuery
+{
+    public function __construct(
+        private BookRepositoryInterface $bookRepository
+    ) {}
+
+    /** @return Book[] */
+    public function execute(): array
+    {
+        return $this->bookRepository->findAvailable();
+    }
+}
+```
+
+**Co Command/Query ROBI:**
 - Pobiera encje z repozytoriów
 - Wywołuje metody biznesowe na encjach
-- Zapisuje zmiany
+- Command: zapisuje zmiany | Query: zwraca dane
 - Koordynuje przepływ
 
-**Czego Application Layer NIE ROBI:**
+**Czego Command/Query NIE ROBI:**
 - Nie zawiera logiki biznesowej (to domena!)
 - Nie wie o HTTP, Doctrine, czy innych szczegółach
 - Nie waliduje reguł biznesowych (to domena!)
@@ -619,7 +666,7 @@ final class BookController extends AbstractController
             return $this->json(['error' => 'userId is required'], 400);
         }
 
-        // 2. Deleguj do Application Layer
+        // 2. Deleguj do Command
         try {
             $command->execute($userId, $bookId);
             return $this->json(['message' => 'Book borrowed successfully']);
@@ -1022,7 +1069,7 @@ class BookTest extends TestCase
 }
 ```
 
-### Przykład: Test Use Case z mockami
+### Przykład: Test Command z mockami
 
 ```php
 class BorrowBookCommandTest extends TestCase
@@ -1056,25 +1103,72 @@ class BorrowBookCommandTest extends TestCase
 
 ## Następne kroki
 
-1. **Implementacja pozostałych Bounded Contexts**
-   - Catalog: wyszukiwanie, metadane, recenzje
+### Co już mamy: CQS (Command-Query Separation)
+
+```
+Application/
+├── Command/    ← Modyfikują stan (BorrowBookCommand)
+└── Query/      ← Tylko odczyt (GetAvailableBooksQuery)
+```
+
+Obie warstwy używają **tych samych encji domenowych** (Book, User, Loan).
+
+---
+
+### Zaimplementowane: Domain Events
+
+Komunikacja między Bounded Contexts przez Domain Events:
+
+```
+Lending                          Catalog
+┌──────────────────┐             ┌──────────────────┐
+│ BorrowBookCommand│             │ EventHandler     │
+│                  │             │                  │
+│  publish(event)  │──event.bus─►│ __invoke(event)  │
+│                  │             │                  │
+└──────────────────┘             └──────────────────┘
+```
+
+```php
+// Lending emituje (BorrowBookCommand)
+$this->eventPublisher->publish(new BookBorrowedEvent($bookId, $userId, $loanId));
+
+// Catalog nasłuchuje (UpdateBookPopularityOnBookBorrowed)
+#[AsMessageHandler(bus: 'event.bus')]
+class UpdateBookPopularityOnBookBorrowed
+{
+    public function __invoke(BookBorrowedEvent $event): void { }
+}
+```
+
+**Korzyści:**
+- Lending nie wie, że Catalog istnieje
+- Można dodawać nowe handlery bez zmiany Lending
+- Luźne powiązanie między modułami
+
+---
+
+### Co można dodać:
+
+1. **CQRS - osobne modele read/write**
+
+   Obecnie Query zwraca encje domenowe. W pełnym CQRS:
+   ```
+   Command: Book (pełna encja z logiką biznesową)
+   Query:   BookReadModel (prosty DTO zoptymalizowany do wyświetlania)
+   ```
+
+   Korzyść: Query może czytać z osobnej, zdenormalizowanej bazy (np. Elasticsearch).
+
+2. **Więcej Domain Events**
+   - `BookReturnedEvent` - gdy książka zostanie zwrócona
+   - `LoanOverdueEvent` - gdy minie termin zwrotu
+   - `UserRegisteredEvent` - gdy dołączy nowy użytkownik
+
+3. **Implementacja pozostałych Bounded Contexts**
+   - Catalog: wyszukiwanie, metadane, recenzje (częściowo zaimplementowany - EventHandler)
    - Membership: rejestracja, typy członkostwa
    - Acquisition: zakupy, dostawcy
-
-2. **Domain Events**
-   ```php
-   // Lending emituje
-   $this->eventPublisher->publish(new BookBorrowedEvent($book->id(), $user->id()));
-
-   // Catalog nasłuchuje
-   class UpdatePopularityOnBookBorrowed { }
-   ```
-
-3. **CQRS - osobne modele read/write**
-   ```
-   Command: Book (pełna encja z logiką)
-   Query: BookReadModel (prosty DTO do wyświetlania)
-   ```
 
 4. **Testy jednostkowe** dla całej domeny
 

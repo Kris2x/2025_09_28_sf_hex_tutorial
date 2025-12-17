@@ -12,6 +12,16 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
 
+/**
+ * REST API Controller dla operacji na książkach.
+ *
+ * Controller jest "cienki" - tylko:
+ * 1. Parsuje request HTTP
+ * 2. Wywołuje Command lub Query
+ * 3. Formatuje response
+ *
+ * Logika biznesowa jest w Command/Query i Domenie!
+ */
 #[Route('/api/books')]
 final class BookController extends AbstractController
 {
@@ -43,10 +53,8 @@ final class BookController extends AbstractController
             return $this->json(['error' => 'userId is required'], 400);
         }
 
-        $userId = $data['userId'];
-
         try {
-            $command->execute($userId, $bookId);
+            $command->execute($data['userId'], $bookId);
             return $this->json(['message' => 'Book borrowed successfully']);
         } catch (\DomainException $e) {
             return $this->json(['error' => $e->getMessage()], 400);
@@ -65,10 +73,8 @@ final class BookController extends AbstractController
             return $this->json(['error' => 'userId is required'], 400);
         }
 
-        $userId = $data['userId'];
-
         try {
-            $fine = $command->execute($userId, $bookId);
+            $fine = $command->execute($data['userId'], $bookId);
             return $this->json([
                 'message' => 'Book returned successfully',
                 'fine' => $fine

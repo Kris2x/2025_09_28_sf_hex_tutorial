@@ -1,6 +1,38 @@
 # Catalog Bounded Context
 
-## TODO: Implementacja
+## Obecna implementacja
+
+Ten moduł obecnie zawiera **Event Handler** reagujący na zdarzenia z modułu Lending:
+
+```
+Catalog/
+└── Application/
+    └── EventHandler/
+        └── UpdateBookPopularityOnBookBorrowed.php
+```
+
+### UpdateBookPopularityOnBookBorrowed
+
+Handler nasłuchuje na `BookBorrowedEvent` emitowany przez Lending:
+
+```php
+#[AsMessageHandler(bus: 'event.bus')]
+class UpdateBookPopularityOnBookBorrowed
+{
+    public function __invoke(BookBorrowedEvent $event): void
+    {
+        // Aktualizuje popularność książki w katalogu
+    }
+}
+```
+
+**Przykład luźnego powiązania:**
+- Lending emituje event i nie wie, kto nasłuchuje
+- Catalog reaguje na event bez bezpośredniej zależności od Lending
+
+---
+
+## TODO: Pełna implementacja
 
 Ten moduł będzie odpowiedzialny za:
 - Zarządzanie katalogiem książek (pełne metadane)
@@ -28,9 +60,11 @@ Catalog/
 │   ├── Command/
 │   │   ├── AddBookToCatalogCommand.php
 │   │   └── UpdateBookMetadataCommand.php
-│   └── Query/
-│       ├── SearchBooksQuery.php
-│       └── GetBookDetailsQuery.php
+│   ├── Query/
+│   │   ├── SearchBooksQuery.php
+│   │   └── GetBookDetailsQuery.php
+│   └── EventHandler/             # ✅ Zaimplementowane
+│       └── UpdateBookPopularityOnBookBorrowed.php
 ├── Infrastructure/
 │   └── Doctrine/
 │       └── Repository/

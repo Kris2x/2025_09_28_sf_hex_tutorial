@@ -27,15 +27,12 @@ services:
     App\Lending\Domain\Repository\LoanRepositoryInterface:
         alias: App\Lending\Infrastructure\Doctrine\Repository\DoctrineLoanRepository
 
-    # Application Services - explicit configuration for clarity
-    App\Lending\Application\Command\BorrowBookCommand:
-        arguments:
-            $bookRepository: '@App\Lending\Domain\Repository\BookRepositoryInterface'
-            $userRepository: '@App\Lending\Domain\Repository\UserRepositoryInterface'
-            $loanRepository: '@App\Lending\Domain\Repository\LoanRepositoryInterface'
+    # === SHARED (współdzielone między kontekstami) ===
+    # Event Publisher binding (Port → Adapter)
+    App\Shared\Domain\Event\EventPublisherInterface:
+        alias: App\Shared\Infrastructure\Messenger\MessengerEventPublisher
 
-    App\Lending\Application\Command\ReturnBookCommand:
+    # MessengerEventPublisher używa event.bus
+    App\Shared\Infrastructure\Messenger\MessengerEventPublisher:
         arguments:
-            $bookRepository: '@App\Lending\Domain\Repository\BookRepositoryInterface'
-            $userRepository: '@App\Lending\Domain\Repository\UserRepositoryInterface'
-            $loanRepository: '@App\Lending\Domain\Repository\LoanRepositoryInterface'
+            $eventBus: '@event.bus'

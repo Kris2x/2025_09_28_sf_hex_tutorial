@@ -8,16 +8,25 @@ use App\Lending\Domain\Repository\BookRepositoryInterface;
 use App\Lending\Domain\Repository\UserRepositoryInterface;
 use App\Lending\Domain\Repository\LoanRepositoryInterface;
 use App\Lending\Domain\Entity\Loan;
+use App\Lending\Domain\Event\BookBorrowedEvent;
 use App\Lending\Domain\ValueObject\BookId;
 use App\Lending\Domain\ValueObject\UserId;
+use App\Shared\Domain\Event\EventPublisherInterface;
 use DateTimeImmutable;
 
+/**
+ * Command: Wypożyczenie książki.
+ *
+ * Command modyfikuje stan systemu.
+ * Po wykonaniu operacji publikuje Domain Event.
+ */
 final readonly class BorrowBookCommand
 {
     public function __construct(
         private BookRepositoryInterface $bookRepository,
         private UserRepositoryInterface $userRepository,
-        private LoanRepositoryInterface $loanRepository
+        private LoanRepositoryInterface $loanRepository,
+        private EventPublisherInterface $eventPublisher
     ) {
     }
 
@@ -33,7 +42,7 @@ final readonly class BorrowBookCommand
             throw new \DomainException('Book not found');
         }
 
-        // Sprawdź reguły biznesowe
+        // Sprawdź reguły biznesowe (logika w encjach!)
         if (!$user->canBorrowBook()) {
             throw new \DomainException('User has reached maximum loan limit');
         }
@@ -47,8 +56,9 @@ final readonly class BorrowBookCommand
         $book->borrow();
 
         // Stwórz wypożyczenie
+        $loanId = uniqid('loan-', true);
         $loan = new Loan(
-            uniqid(), // W prawdziwej aplikacji użyj UUID
+            $loanId,
             $user->id(),
             $book->id(),
             new DateTimeImmutable()
@@ -58,5 +68,15 @@ final readonly class BorrowBookCommand
         $this->userRepository->save($user);
         $this->bookRepository->save($book);
         $this->loanRepository->save($loan);
+
+        // Opublikuj Domain Event
+        // Inne moduły mogą na niego zareagować!
+        $this->eventPublisher->publish(
+            new BookBorrowedEvent(
+                bookId: $bookId,
+                userId: $userId,
+                loanId: $loanId
+            )
+        );
     }
 }

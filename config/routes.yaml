@@ -1,5 +1,13 @@
-controllers:
+# === LENDING BOUNDED CONTEXT ===
+lending_controllers:
     resource:
-        path: ../src/Presentation/Controller/
-        namespace: App\Presentation\Controller
+        path: ../src/Lending/Presentation/Controller/
+        namespace: App\Lending\Presentation\Controller
     type: attribute
+
+# Dodatkowe konteksty w przyszłości:
+# catalog_controllers:
+#     resource:
+#         path: ../src/Catalog/Presentation/Controller/
+#         namespace: App\Catalog\Presentation\Controller
+#     type: attribute

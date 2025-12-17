@@ -10,6 +10,12 @@ use App\Lending\Domain\Repository\LoanRepositoryInterface;
 use App\Lending\Domain\ValueObject\BookId;
 use App\Lending\Domain\ValueObject\UserId;
 
+/**
+ * Command: Zwrot książki.
+ *
+ * Command modyfikuje stan systemu.
+ * Zwraca wysokość kary za przetrzymanie.
+ */
 final readonly class ReturnBookCommand
 {
     public function __construct(
@@ -19,6 +25,9 @@ final readonly class ReturnBookCommand
     ) {
     }
 
+    /**
+     * @return float Kara za przetrzymanie (0.0 jeśli w terminie)
+     */
     public function execute(string $userId, string $bookId): float
     {
         $user = $this->userRepository->findById(new UserId($userId));
@@ -46,7 +55,7 @@ final readonly class ReturnBookCommand
             throw new \DomainException('No active loan found for this book');
         }
 
-        // Oblicz karę
+        // Oblicz karę (logika w encji Loan!)
         $fine = $activeLoan->calculateFine();
 
         // Wykonaj zwrot

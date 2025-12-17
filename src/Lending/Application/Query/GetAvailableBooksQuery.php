@@ -7,6 +7,11 @@ namespace App\Lending\Application\Query;
 use App\Lending\Domain\Repository\BookRepositoryInterface;
 use App\Lending\Domain\Entity\Book;
 
+/**
+ * Query: Pobranie dostępnych książek.
+ *
+ * Query tylko odczytuje dane - NIE modyfikuje stanu systemu.
+ */
 final readonly class GetAvailableBooksQuery
 {
     public function __construct(
@@ -14,7 +19,9 @@ final readonly class GetAvailableBooksQuery
     ) {
     }
 
-    /** @return Book[] */
+    /**
+     * @return Book[]
+     */
     public function execute(): array
     {
         return $this->bookRepository->findAvailable();
