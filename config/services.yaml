@@ -16,28 +16,26 @@ services:
     App\:
         resource: '../src/'
 
-    # === HEXAGONAL ARCHITECTURE BINDINGS ===
-    # Bind domain interfaces to infrastructure implementations
-
+    # === LENDING BOUNDED CONTEXT ===
     # Repository bindings (Ports → Adapters)
-    App\Domain\Repository\BookRepositoryInterface:
-        alias: App\Infrastructure\Doctrine\Repository\DoctrineBookRepository
+    App\Lending\Domain\Repository\BookRepositoryInterface:
+        alias: App\Lending\Infrastructure\Doctrine\Repository\DoctrineBookRepository
 
-    App\Domain\Repository\UserRepositoryInterface:
-        alias: App\Infrastructure\Doctrine\Repository\DoctrineUserRepository
+    App\Lending\Domain\Repository\UserRepositoryInterface:
+        alias: App\Lending\Infrastructure\Doctrine\Repository\DoctrineUserRepository
 
-    App\Domain\Repository\LoanRepositoryInterface:
-        alias: App\Infrastructure\Doctrine\Repository\DoctrineLoanRepository
+    App\Lending\Domain\Repository\LoanRepositoryInterface:
+        alias: App\Lending\Infrastructure\Doctrine\Repository\DoctrineLoanRepository
 
     # Application Services - explicit configuration for clarity
-    App\Application\Command\BorrowBookCommand:
+    App\Lending\Application\Command\BorrowBookCommand:
         arguments:
-            $bookRepository: '@App\Domain\Repository\BookRepositoryInterface'
-            $userRepository: '@App\Domain\Repository\UserRepositoryInterface'
-            $loanRepository: '@App\Domain\Repository\LoanRepositoryInterface'
+            $bookRepository: '@App\Lending\Domain\Repository\BookRepositoryInterface'
+            $userRepository: '@App\Lending\Domain\Repository\UserRepositoryInterface'
+            $loanRepository: '@App\Lending\Domain\Repository\LoanRepositoryInterface'
 
-    App\Application\Command\ReturnBookCommand:
+    App\Lending\Application\Command\ReturnBookCommand:
         arguments:
-            $bookRepository: '@App\Domain\Repository\BookRepositoryInterface'
-            $userRepository: '@App\Domain\Repository\UserRepositoryInterface'
-            $loanRepository: '@App\Domain\Repository\LoanRepositoryInterface'
+            $bookRepository: '@App\Lending\Domain\Repository\BookRepositoryInterface'
+            $userRepository: '@App\Lending\Domain\Repository\UserRepositoryInterface'
+            $loanRepository: '@App\Lending\Domain\Repository\LoanRepositoryInterface'

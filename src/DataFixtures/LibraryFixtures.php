@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace App\DataFixtures;
 
-use App\Domain\Entity\Book;
-use App\Domain\Entity\User;
-use App\Domain\ValueObject\BookId;
-use App\Domain\ValueObject\UserId;
-use App\Domain\ValueObject\Email;
+use App\Lending\Domain\Entity\Book;
+use App\Lending\Domain\Entity\User;
+use App\Lending\Domain\ValueObject\BookId;
+use App\Lending\Domain\ValueObject\UserId;
+use App\Lending\Domain\ValueObject\Email;
 use DateTimeImmutable;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Persistence\ObjectManager;

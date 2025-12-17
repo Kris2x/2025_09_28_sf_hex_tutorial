@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(php:*)",
+      "Bash(php bin/console:*)",
+      "Bash(docker volume rm:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
