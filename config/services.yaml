@@ -36,3 +36,8 @@ services:
     App\Shared\Infrastructure\Messenger\MessengerEventPublisher:
         arguments:
             $eventBus: '@event.bus'
+
+    # === CONTRACTS (komunikacja między modułami) ===
+    # BookInfoProvider: Lending potrzebuje info o książkach → Catalog dostarcza
+    App\Shared\Contract\BookInfoProviderInterface:
+        alias: App\Catalog\Infrastructure\Provider\CatalogBookInfoProvider

@@ -123,10 +123,9 @@ class BookServiceTest extends TestCase
                     │  │           DOMAIN                │   │◄── Serce aplikacji
                     │  │  (Entities, Value Objects,      │   │    Czysta logika
                     │  │   Repository Interfaces)        │   │    biznesowa
-                    │  └──────────────┬──────────────────┘   │
-                    │                 │                       │
-                    │                 ▼                       │
-                    │  ┌─────────────────────────────────┐   │
+                    │  └──────────────▲──────────────────┘   │
+                    │                 │ implementuje         │
+                    │  ┌──────────────┴──────────────────┐   │
                     │  │       INFRASTRUCTURE            │   │
                     │  │  (Doctrine, External APIs,      │   │──► Database
                     │  │   Message Queues, Email)        │   │──► Redis
