@@ -37,6 +37,17 @@ services:
         arguments:
             $eventBus: '@event.bus'
 
+    # === CATALOG BOUNDED CONTEXT ===
+    # Repository bindings (Ports → Adapters)
+    App\Catalog\Domain\Repository\CatalogBookRepositoryInterface:
+        alias: App\Catalog\Infrastructure\Doctrine\Repository\DoctrineCatalogBookRepository
+
+    App\Catalog\Domain\Repository\AuthorRepositoryInterface:
+        alias: App\Catalog\Infrastructure\Doctrine\Repository\DoctrineAuthorRepository
+
+    App\Catalog\Domain\Repository\CategoryRepositoryInterface:
+        alias: App\Catalog\Infrastructure\Doctrine\Repository\DoctrineCategoryRepository
+
     # === CONTRACTS (komunikacja między modułami) ===
     # BookInfoProvider: Lending potrzebuje info o książkach → Catalog dostarcza
     App\Shared\Contract\BookInfoProviderInterface:

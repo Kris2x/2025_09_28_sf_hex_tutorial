@@ -2,9 +2,15 @@ doctrine:
     dbal:
         url: '%env(resolve:DATABASE_URL)%'
         types:
+            # Lending BC types
             book_id: App\Lending\Infrastructure\Doctrine\Type\BookIdType
             user_id: App\Lending\Infrastructure\Doctrine\Type\UserIdType
             email: App\Lending\Infrastructure\Doctrine\Type\EmailType
+            # Catalog BC types
+            catalog_book_id: App\Catalog\Infrastructure\Doctrine\Type\CatalogBookIdType
+            author_id: App\Catalog\Infrastructure\Doctrine\Type\AuthorIdType
+            category_id: App\Catalog\Infrastructure\Doctrine\Type\CategoryIdType
+            catalog_isbn: App\Catalog\Infrastructure\Doctrine\Type\IsbnType
 
         # IMPORTANT: You MUST configure your server version,
         # either here or in the DATABASE_URL env var (see .env file)
@@ -28,6 +34,12 @@ doctrine:
                 dir: '%kernel.project_dir%/src/Lending/Domain/Entity'
                 prefix: 'App\Lending\Domain\Entity'
                 alias: Lending
+            Catalog:
+                type: attribute
+                is_bundle: false
+                dir: '%kernel.project_dir%/src/Catalog/Domain/Entity'
+                prefix: 'App\Catalog\Domain\Entity'
+                alias: Catalog
         controller_resolver:
             auto_mapping: false
 

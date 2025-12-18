@@ -249,7 +249,8 @@ src/
 | Kontekst | Odpowiedzialność | Encje | Status |
 |----------|------------------|-------|--------|
 | **Lending** | Wypożyczenia, zwroty, kary | Book, User, Loan | ✅ Zaimplementowany |
-| **Catalog** | Przeglądanie, wyszukiwanie, recenzje | CatalogBook, Author, Category | 📋 TODO |
+| **Catalog** | Przeglądanie, wyszukiwanie, metadane | CatalogBook, Author, Category | ✅ Zaimplementowany |
+| **Shared** | Eventy, kontrakty między BC | - | ✅ Zaimplementowany |
 | **Membership** | Członkostwo, karty biblioteczne | Member, LibraryCard | 📋 TODO |
 | **Acquisition** | Zakupy, dostawcy, faktury | PurchaseOrder, Supplier | 📋 TODO |
 
@@ -326,9 +327,12 @@ src/
 │   │   │   ├── BorrowBookCommand.php   #   - Wypożycz + emituje event
 │   │   │   └── ReturnBookCommand.php   #   - Zwróć książkę
 │   │   │
-│   │   └── Query/                      # Zapytania (tylko odczyt)
-│   │       ├── GetAvailableBooksQuery.php
-│   │       └── GetUserLoansQuery.php
+│   │   ├── Query/                      # Zapytania (tylko odczyt)
+│   │   │   ├── GetAvailableBooksQuery.php
+│   │   │   └── GetUserLoansQuery.php
+│   │   │
+│   │   └── EventHandler/               # 👂 Nasłuchuje eventów z Catalog
+│   │       └── CreateBookOnBookAddedToCatalog.php  # Tworzy Book gdy dodano do Catalog
 │   │
 │   ├── Infrastructure/                 # 🔧 WARSTWA INFRASTRUKTURY
 │   │   │                               # Szczegóły techniczne
@@ -355,9 +359,57 @@ src/
 │   │                                   # BOUNDED CONTEXT: KATALOG
 │   │                                   # ══════════════════════════════
 │   │
-│   └── Application/
-│       └── EventHandler/               # 👂 Nasłuchuje eventów z innych kontekstów
-│           └── UpdateBookPopularityOnBookBorrowed.php
+│   ├── Domain/                         # 🎯 WARSTWA DOMENOWA
+│   │   ├── Entity/
+│   │   │   ├── CatalogBook.php         #   - Metadane, opis, popularność
+│   │   │   ├── Author.php              #   - Autor z biografią
+│   │   │   └── Category.php            #   - Kategorie hierarchiczne
+│   │   │
+│   │   ├── ValueObject/
+│   │   │   ├── CatalogBookId.php
+│   │   │   ├── AuthorId.php
+│   │   │   ├── CategoryId.php
+│   │   │   └── Isbn.php                #   - Walidacja formatu ISBN
+│   │   │
+│   │   ├── Event/
+│   │   │   └── BookAddedToCatalogEvent.php  # → Lending tworzy Book
+│   │   │
+│   │   └── Repository/                 # 🔌 PORTY
+│   │       ├── CatalogBookRepositoryInterface.php
+│   │       ├── AuthorRepositoryInterface.php
+│   │       └── CategoryRepositoryInterface.php
+│   │
+│   ├── Application/                    # 🎬 WARSTWA APLIKACJI
+│   │   ├── Command/
+│   │   │   └── AddBookToCatalogCommand.php  # Dodaje + emituje event
+│   │   │
+│   │   ├── Query/
+│   │   │   ├── SearchCatalogBooksQuery.php
+│   │   │   ├── GetCatalogBookDetailsQuery.php
+│   │   │   └── GetCategoriesQuery.php
+│   │   │
+│   │   └── EventHandler/               # 👂 Nasłuchuje eventów z Lending
+│   │       └── UpdateBookPopularityOnBookBorrowed.php
+│   │
+│   ├── Infrastructure/                 # 🔧 WARSTWA INFRASTRUKTURY
+│   │   ├── Doctrine/
+│   │   │   ├── Repository/             # 🔌 ADAPTERY
+│   │   │   │   ├── DoctrineCatalogBookRepository.php
+│   │   │   │   ├── DoctrineAuthorRepository.php
+│   │   │   │   └── DoctrineCategoryRepository.php
+│   │   │   │
+│   │   │   └── Type/
+│   │   │       ├── CatalogBookIdType.php
+│   │   │       ├── AuthorIdType.php
+│   │   │       ├── CategoryIdType.php
+│   │   │       └── IsbnType.php
+│   │   │
+│   │   └── Provider/
+│   │       └── CatalogBookInfoProvider.php  # Implementuje Shared Contract
+│   │
+│   └── Presentation/                   # 🖥️ WARSTWA PREZENTACJI
+│       └── Controller/
+│           └── CatalogController.php   # REST API dla katalogu
 │
 ├── Membership/                         # 📋 TODO: Kontekst Członkostwo
 │   └── README.md
@@ -950,7 +1002,9 @@ php -S localhost:8000 -t public/
 
 ## API Endpoints
 
-### GET /api/books/ - Lista dostępnych książek
+### Lending BC
+
+#### GET /api/books/ - Lista dostępnych książek
 
 ```bash
 curl http://localhost:8000/api/books/
@@ -1000,6 +1054,114 @@ curl -X POST http://localhost:8000/api/books/book-1/return \
     "message": "Book returned successfully",
     "fine": 0.0
 }
+```
+
+### Catalog BC
+
+#### GET /api/catalog/books - Wyszukaj książki
+
+```bash
+# Najpopularniejsze (domyślnie)
+curl http://localhost:8000/api/catalog/books
+
+# Wyszukaj po tytule
+curl "http://localhost:8000/api/catalog/books?q=wzorce"
+
+# Po kategorii
+curl "http://localhost:8000/api/catalog/books?category=programming"
+
+# Po autorze
+curl "http://localhost:8000/api/catalog/books?author=author-1"
+```
+
+```json
+[
+    {
+        "id": "book-1",
+        "title": "Wzorce projektowe",
+        "author": "Erich Gamma",
+        "isbn": "978-83-246-1493-0",
+        "description": "Klasyka wzorców projektowych",
+        "popularity": 15,
+        "publishedAt": "1994-10-01",
+        "categories": [
+            {"slug": "programming", "name": "Programowanie"}
+        ]
+    }
+]
+```
+
+#### GET /api/catalog/books/{id} - Szczegóły książki
+
+```bash
+curl http://localhost:8000/api/catalog/books/book-1
+```
+
+```json
+{
+    "id": "book-1",
+    "title": "Wzorce projektowe",
+    "author": {
+        "id": "author-1",
+        "name": "Erich Gamma",
+        "biography": "Szwajcarski informatyk..."
+    },
+    "isbn": "978-83-246-1493-0",
+    "description": "Klasyka wzorców projektowych",
+    "popularity": 15,
+    "publishedAt": "1994-10-01",
+    "createdAt": "2024-01-15 10:30:00",
+    "categories": [
+        {"slug": "programming", "name": "Programowanie", "path": "Programowanie"}
+    ]
+}
+```
+
+#### POST /api/catalog/books - Dodaj książkę
+
+Ten endpoint automatycznie synchronizuje książkę z Lending BC przez event.
+
+```bash
+curl -X POST http://localhost:8000/api/catalog/books \
+  -H "Content-Type: application/json" \
+  -d '{
+    "bookId": "book-new",
+    "title": "Domain-Driven Design",
+    "isbn": "978-0-321-12521-5",
+    "authorId": "author-2",
+    "authorFirstName": "Eric",
+    "authorLastName": "Evans",
+    "publishedAt": "2003-08-30",
+    "description": "Tackling Complexity in the Heart of Software"
+  }'
+```
+
+```json
+{
+    "message": "Book added to catalog",
+    "bookId": "book-new"
+}
+```
+
+#### GET /api/catalog/categories - Lista kategorii
+
+```bash
+curl http://localhost:8000/api/catalog/categories
+```
+
+```json
+[
+    {
+        "id": "cat-1",
+        "slug": "programming",
+        "name": "Programowanie",
+        "hasChildren": true,
+        "children": [
+            {"id": "cat-2", "slug": "php", "name": "PHP"},
+            {"id": "cat-3", "slug": "python", "name": "Python"}
+        ]
+    }
+]
 ```
 
 ---
@@ -1102,48 +1264,45 @@ class BorrowBookCommandTest extends TestCase
 
 ## Następne kroki
 
-### Co już mamy: CQS (Command-Query Separation)
+### Co już mamy
+
+#### CQS (Command-Query Separation)
 
 ```
 Application/
-├── Command/    ← Modyfikują stan (BorrowBookCommand)
-└── Query/      ← Tylko odczyt (GetAvailableBooksQuery)
+├── Command/       ← Modyfikują stan (BorrowBookCommand, AddBookToCatalogCommand)
+├── Query/         ← Tylko odczyt (GetAvailableBooksQuery, SearchCatalogBooksQuery)
+└── EventHandler/  ← Reagują na eventy z innych BC
 ```
 
-Obie warstwy używają **tych samych encji domenowych** (Book, User, Loan).
-
----
-
-### Zaimplementowane: Domain Events
-
-Komunikacja między Bounded Contexts przez Domain Events:
+#### Domain Events - dwukierunkowa komunikacja
 
 ```
-Lending                          Catalog
-┌──────────────────┐             ┌──────────────────┐
-│ BorrowBookCommand│             │ EventHandler     │
-│                  │             │                  │
-│  publish(event)  │──event.bus─►│ __invoke(event)  │
-│                  │             │                  │
-└──────────────────┘             └──────────────────┘
-```
-
-```php
-// Lending emituje (BorrowBookCommand)
-$this->eventPublisher->publish(new BookBorrowedEvent($bookId, $userId, $loanId));
-
-// Catalog nasłuchuje (UpdateBookPopularityOnBookBorrowed)
-#[AsMessageHandler(bus: 'event.bus')]
-class UpdateBookPopularityOnBookBorrowed
-{
-    public function __invoke(BookBorrowedEvent $event): void { }
-}
+┌──────────────────────────────────────────────────────────────────┐
+│                                                                  │
+│  CATALOG                              LENDING                    │
+│  ┌─────────────────┐                  ┌─────────────────┐       │
+│  │ AddBookToCalog  │                  │ CreateBook      │       │
+│  │ Command         │─────────────────►│ EventHandler    │       │
+│  │                 │ BookAddedTo      │                 │       │
+│  │                 │ CatalogEvent     │ (tworzy Book)   │       │
+│  └─────────────────┘                  └─────────────────┘       │
+│                                                                  │
+│  ┌─────────────────┐                  ┌─────────────────┐       │
+│  │ UpdatePopularity│                  │ BorrowBook      │       │
+│  │ EventHandler    │◄─────────────────│ Command         │       │
+│  │                 │ BookBorrowed     │                 │       │
+│  │ (zwiększa       │ Event            │                 │       │
+│  │  popularity)    │                  │                 │       │
+│  └─────────────────┘                  └─────────────────┘       │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 **Korzyści:**
-- Lending nie wie, że Catalog istnieje
-- Można dodawać nowe handlery bez zmiany Lending
-- Luźne powiązanie między modułami
+- Każdy BC ma własne encje Book (CatalogBook vs Lending.Book)
+- Synchronizacja przez eventy - luźne powiązanie
+- Można dodawać nowe handlery bez zmiany emitującego BC
 
 ---
 
@@ -1165,13 +1324,14 @@ class UpdateBookPopularityOnBookBorrowed
    - `UserRegisteredEvent` - gdy dołączy nowy użytkownik
 
 3. **Implementacja pozostałych Bounded Contexts**
-   - Catalog: wyszukiwanie, metadane, recenzje (częściowo zaimplementowany - EventHandler)
-   - Membership: rejestracja, typy członkostwa
-   - Acquisition: zakupy, dostawcy
+   - Membership: rejestracja użytkowników, typy członkostwa, karty biblioteczne
+   - Acquisition: zakupy książek, dostawcy, faktury
 
-4. **Testy jednostkowe** dla całej domeny
+4. **Testy jednostkowe** dla całej domeny (Lending + Catalog)
 
 5. **Testy integracyjne** dla repozytoriów
+
+6. **Fixtures dla Catalog** - dane testowe autorów, kategorii, książek katalogowych
 
 ---
 
