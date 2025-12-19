@@ -404,8 +404,8 @@ src/
 │   │   │       ├── CategoryIdType.php
 │   │   │       └── IsbnType.php
 │   │   │
-│   │   └── Provider/
-│   │       └── CatalogBookInfoProvider.php  # Implementuje Shared Contract
+│   │   └── ContractAdapter/
+│   │       └── CatalogBookInfoProvider.php  # Adapter kontraktu z Shared
 │   │
 │   └── Presentation/                   # 🖥️ WARSTWA PREZENTACJI
 │       └── Controller/

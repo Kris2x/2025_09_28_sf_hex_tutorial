@@ -2,16 +2,16 @@
 
 declare(strict_types=1);
 
-namespace App\Catalog\Infrastructure\Provider;
+namespace App\Catalog\Infrastructure\ContractAdapter;
 
 use App\Shared\Contract\BookInfoProviderInterface;
 use App\Shared\ReadModel\BookBasicInfo;
 use Doctrine\DBAL\Connection;
 
 /**
- * Adapter: Dostarcza informacje o książkach z modułu Catalog.
+ * Adapter kontraktu BookInfoProviderInterface.
  *
- * Ten adapter implementuje kontrakt z Shared i jest używany przez inne moduły
+ * Implementuje kontrakt z Shared i jest używany przez inne moduły
  * (np. Lending) gdy potrzebują informacji o książkach.
  *
  * Używa DBAL (nie ORM) żeby:
