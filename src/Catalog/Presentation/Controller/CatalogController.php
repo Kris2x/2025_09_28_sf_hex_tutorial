@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Catalog\Presentation\Controller;
 
 use App\Catalog\Application\Command\AddBookToCatalogCommand;
+use App\Catalog\Application\Command\AddBookToCatalogCommandHandler;
 use App\Catalog\Application\Query\GetCatalogBookDetailsQuery;
 use App\Catalog\Application\Query\GetCategoriesQuery;
 use App\Catalog\Application\Query\SearchCatalogBooksQuery;
@@ -106,14 +107,15 @@ final class CatalogController extends AbstractController
      * Dodaje nową książkę do katalogu.
      *
      * Ten endpoint:
-     * 1. Tworzy książkę w Catalog BC
-     * 2. Publikuje BookAddedToCatalogEvent
-     * 3. Lending BC nasłuchuje i tworzy swoją wersję Book
+     * 1. Tworzy Command z danych requestu
+     * 2. Handler tworzy książkę w Catalog BC
+     * 3. Handler publikuje BookAddedToCatalogEvent
+     * 4. Lending BC nasłuchuje i tworzy swoją wersję Book
      */
     #[Route('/books', methods: ['POST'])]
     public function addBook(
         Request $request,
-        AddBookToCatalogCommand $command
+        AddBookToCatalogCommandHandler $handler
     ): JsonResponse {
         $data = json_decode($request->getContent(), true);
 
@@ -125,7 +127,7 @@ final class CatalogController extends AbstractController
         }
 
         try {
-            $book = $command->execute(
+            $command = new AddBookToCatalogCommand(
                 bookId: $data['bookId'],
                 title: $data['title'],
                 isbn: $data['isbn'],
@@ -135,6 +137,8 @@ final class CatalogController extends AbstractController
                 publishedAt: new \DateTimeImmutable($data['publishedAt']),
                 description: $data['description'] ?? null
             );
+
+            $book = $handler($command);
 
             return $this->json([
                 'message' => 'Book added to catalog',

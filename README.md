@@ -324,11 +324,13 @@ src/
 │   │   │                               # Zależy TYLKO od Domain
 │   │   │
 │   │   ├── Command/                    # Komendy (modyfikują stan)
-│   │   │   ├── BorrowBookCommand.php   #   - Wypożycz + emituje event
-│   │   │   └── ReturnBookCommand.php   #   - Zwróć książkę
+│   │   │   ├── BorrowBookCommand.php         # DTO - tylko dane
+│   │   │   ├── BorrowBookCommandHandler.php  # Logika - __invoke()
+│   │   │   ├── ReturnBookCommand.php         # DTO - tylko dane
+│   │   │   └── ReturnBookCommandHandler.php  # Logika - __invoke()
 │   │   │
 │   │   ├── Query/                      # Zapytania (tylko odczyt)
-│   │   │   ├── GetAvailableBooksQuery.php
+│   │   │   ├── GetAvailableBooksQuery.php    # DTO + logika (pragmatycznie)
 │   │   │   └── GetUserLoansQuery.php
 │   │   │
 │   │   └── EventHandler/               # 👂 Nasłuchuje eventów z Catalog
@@ -381,10 +383,11 @@ src/
 │   │
 │   ├── Application/                    # 🎬 WARSTWA APLIKACJI
 │   │   ├── Command/
-│   │   │   └── AddBookToCatalogCommand.php  # Dodaje + emituje event
+│   │   │   ├── AddBookToCatalogCommand.php        # DTO - tylko dane
+│   │   │   └── AddBookToCatalogCommandHandler.php # Logika - __invoke()
 │   │   │
 │   │   ├── Query/
-│   │   │   ├── SearchCatalogBooksQuery.php
+│   │   │   ├── SearchCatalogBooksQuery.php        # DTO + logika (pragmatycznie)
 │   │   │   ├── GetCatalogBookDetailsQuery.php
 │   │   │   └── GetCategoriesQuery.php
 │   │   │
@@ -545,18 +548,19 @@ interface BookRepositoryInterface
 
 ---
 
-### 2. Application Layer - Command i Query
+### 2. Application Layer - Command, Handler i Query
 
 **Zasada:** Warstwa aplikacji koordynuje przepływ, ale NIE zawiera logiki biznesowej.
 
-#### Podział na Command i Query
+#### Podział na Command/Handler i Query (CQRS)
 
 | Typ | Cel | Przykład |
 |-----|-----|----------|
-| **Command** | Modyfikuje stan systemu | BorrowBookCommand, ReturnBookCommand |
-| **Query** | Tylko odczytuje dane | GetAvailableBooksQuery, GetUserLoansQuery |
+| **Command** | DTO z danymi wejściowymi | BorrowBookCommand (userId, bookId) |
+| **CommandHandler** | Logika wykonania | BorrowBookCommandHandler |
+| **Query** | Odczyt danych (DTO + logika razem) | GetAvailableBooksQuery |
 
-#### Command - modyfikacja stanu
+#### Command - czyste DTO
 
 ```php
 namespace App\Lending\Application\Command;
@@ -564,23 +568,43 @@ namespace App\Lending\Application\Command;
 /**
  * Command: Wypożyczenie książki.
  *
- * Command MODYFIKUJE stan systemu.
- * Orkiestruje przepływ - deleguje logikę biznesową do domeny.
+ * Czyste DTO - tylko dane, bez logiki.
  */
 final readonly class BorrowBookCommand
+{
+    public function __construct(
+        public string $userId,
+        public string $bookId
+    ) {}
+}
+```
+
+#### CommandHandler - logika wykonania
+
+```php
+namespace App\Lending\Application\Command;
+
+/**
+ * Handler: Obsługuje wypożyczenie książki.
+ *
+ * Handler zawiera logikę wykonania komendy.
+ * Orkiestruje przepływ - deleguje logikę biznesową do domeny.
+ */
+final readonly class BorrowBookCommandHandler
 {
     public function __construct(
         // ✅ Zależność od INTERFEJSU, nie implementacji
         private BookRepositoryInterface $bookRepository,
         private UserRepositoryInterface $userRepository,
-        private LoanRepositoryInterface $loanRepository
+        private LoanRepositoryInterface $loanRepository,
+        private EventPublisherInterface $eventPublisher
     ) {}
 
-    public function execute(string $userId, string $bookId): void
+    public function __invoke(BorrowBookCommand $command): void
     {
         // 1. Pobierz encje
-        $user = $this->userRepository->findById(new UserId($userId));
-        $book = $this->bookRepository->findById(new BookId($bookId));
+        $user = $this->userRepository->findById(new UserId($command->userId));
+        $book = $this->bookRepository->findById(new BookId($command->bookId));
 
         // 2. Deleguj logikę do DOMENY
         if (!$user->canBorrowBook()) {
@@ -597,11 +621,14 @@ final readonly class BorrowBookCommand
         $this->userRepository->save($user);
         $this->bookRepository->save($book);
         $this->loanRepository->save($loan);
+
+        // 5. Opublikuj event
+        $this->eventPublisher->publish(new BookBorrowedEvent(...));
     }
 }
 ```
 
-#### Query - tylko odczyt
+#### Query - tylko odczyt (pragmatycznie DTO + logika razem)
 
 ```php
 namespace App\Lending\Application\Query;
@@ -610,6 +637,7 @@ namespace App\Lending\Application\Query;
  * Query: Pobranie dostępnych książek.
  *
  * Query TYLKO ODCZYTUJE dane - NIE modyfikuje stanu!
+ * Pragmatycznie: DTO i logika razem (rozdzielenie to overengineering dla odczytów).
  */
 final readonly class GetAvailableBooksQuery
 {
@@ -625,16 +653,21 @@ final readonly class GetAvailableBooksQuery
 }
 ```
 
-**Co Command/Query ROBI:**
+**Co Handler ROBI:**
 - Pobiera encje z repozytoriów
 - Wywołuje metody biznesowe na encjach
-- Command: zapisuje zmiany | Query: zwraca dane
+- Zapisuje zmiany i publikuje eventy
 - Koordynuje przepływ
 
-**Czego Command/Query NIE ROBI:**
+**Czego Handler NIE ROBI:**
 - Nie zawiera logiki biznesowej (to domena!)
 - Nie wie o HTTP, Doctrine, czy innych szczegółach
 - Nie waliduje reguł biznesowych (to domena!)
+
+**Dlaczego Query nie ma osobnego Handlera?**
+- Query tylko odczytuje dane - logika jest minimalna
+- Rozdzielenie Query/QueryHandler to overengineering dla prostych odczytów
+- Pragmatyczne podejście: DTO + logika razem w jednej klasie
 
 ---
 
@@ -707,7 +740,7 @@ final class BookController extends AbstractController
     public function borrowBook(
         string $bookId,
         Request $request,
-        BorrowBookCommand $command  // ✅ Wstrzyknięty przez DI
+        BorrowBookCommandHandler $handler  // ✅ Wstrzyknięty Handler
     ): JsonResponse {
         // 1. Wyciągnij dane z HTTP
         $data = json_decode($request->getContent(), true);
@@ -717,9 +750,10 @@ final class BookController extends AbstractController
             return $this->json(['error' => 'userId is required'], 400);
         }
 
-        // 2. Deleguj do Command
+        // 2. Stwórz Command (DTO) i wywołaj Handler
         try {
-            $command->execute($userId, $bookId);
+            $command = new BorrowBookCommand($userId, $bookId);
+            $handler($command);  // wywołuje __invoke()
             return $this->json(['message' => 'Book borrowed successfully']);
         } catch (\DomainException $e) {
             return $this->json(['error' => $e->getMessage()], 400);
@@ -865,10 +899,11 @@ services:
 2. BookController (Presentation)
    - Parsuje JSON
    - Wyciąga userId z body
-   - Wywołuje BorrowBookCommand
+   - Tworzy BorrowBookCommand (DTO)
+   - Wywołuje BorrowBookCommandHandler
             │
             ▼
-3. BorrowBookCommand (Application)
+3. BorrowBookCommandHandler (Application)
    - Pobiera User przez UserRepositoryInterface
    - Pobiera Book przez BookRepositoryInterface
    - Sprawdza: user.canBorrowBook()
@@ -876,6 +911,7 @@ services:
    - Wywołuje: book.borrow()
    - Tworzy Loan
    - Zapisuje wszystko przez interfejsy
+   - Publikuje BookBorrowedEvent
             │
             ▼
 4. DoctrineUserRepository (Infrastructure)
@@ -898,24 +934,26 @@ services:
 ### Diagram sekwencji
 
 ```
-Controller      Command         Domain          Repository      Database
-    │               │              │                │              │
-    │──execute()───►│              │                │              │
-    │               │──findById()─►│                │              │
-    │               │              │◄──────────────►│──SELECT─────►│
-    │               │              │                │◄─────────────│
-    │               │◄─────────────│                │              │
-    │               │              │                │              │
-    │               │──canBorrow()─►│               │              │
-    │               │◄──true───────│                │              │
-    │               │              │                │              │
-    │               │──borrowBook()►│               │              │
-    │               │──borrow()────►│               │              │
-    │               │              │                │              │
-    │               │──save()──────►│               │              │
-    │               │              │───────────────►│──UPDATE─────►│
-    │               │              │                │◄─────────────│
-    │◄──success─────│              │                │              │
+Controller      Command(DTO)    Handler         Domain          Repository      Database
+    │               │              │                │                │              │
+    │──new()───────►│              │                │                │              │
+    │               │              │                │                │              │
+    │──__invoke()──────────────────►│               │                │              │
+    │               │              │──findById()────►│               │              │
+    │               │              │                │◄──────────────►│──SELECT─────►│
+    │               │              │                │                │◄─────────────│
+    │               │              │◄───────────────│                │              │
+    │               │              │                │                │              │
+    │               │              │──canBorrow()───►│               │              │
+    │               │              │◄──true─────────│                │              │
+    │               │              │                │                │              │
+    │               │              │──borrowBook()──►│               │              │
+    │               │              │──borrow()──────►│               │              │
+    │               │              │                │                │              │
+    │               │              │──save()────────►│               │              │
+    │               │              │                │───────────────►│──UPDATE─────►│
+    │               │              │                │                │◄─────────────│
+    │◄──────────────────────────────│               │                │              │
 ```
 
 ---
@@ -1184,7 +1222,7 @@ tests/
 │       │       └── EmailTest.php
 │       └── Application/
 │           └── Command/
-│               └── BorrowBookCommandTest.php
+│               └── BorrowBookCommandHandlerTest.php  # Test handlera
 │
 ├── Integration/                    # Testy z bazą danych
 │   └── Lending/
@@ -1230,12 +1268,12 @@ class BookTest extends TestCase
 }
 ```
 
-### Przykład: Test Command z mockami
+### Przykład: Test Handler z mockami
 
 ```php
-class BorrowBookCommandTest extends TestCase
+class BorrowBookCommandHandlerTest extends TestCase
 {
-    public function testExecuteSuccessfully(): void
+    public function testHandleSuccessfully(): void
     {
         // Arrange - przygotuj mocki
         $user = new User(new UserId('user-1'), 'Jan', new Email('jan@test.pl'), new DateTimeImmutable());
@@ -1248,10 +1286,12 @@ class BorrowBookCommandTest extends TestCase
         $bookRepo->method('findById')->willReturn($book);
 
         $loanRepo = $this->createMock(LoanRepositoryInterface::class);
+        $eventPublisher = $this->createMock(EventPublisherInterface::class);
 
         // Act
-        $command = new BorrowBookCommand($bookRepo, $userRepo, $loanRepo);
-        $command->execute('user-1', 'book-1');
+        $handler = new BorrowBookCommandHandler($bookRepo, $userRepo, $loanRepo, $eventPublisher);
+        $command = new BorrowBookCommand('user-1', 'book-1');
+        $handler($command);
 
         // Assert
         $this->assertFalse($book->isAvailable());
@@ -1266,14 +1306,24 @@ class BorrowBookCommandTest extends TestCase
 
 ### Co już mamy
 
-#### CQS (Command-Query Separation)
+#### CQRS - Command/Handler i Query
 
 ```
 Application/
-├── Command/       ← Modyfikują stan (BorrowBookCommand, AddBookToCatalogCommand)
-├── Query/         ← Tylko odczyt (GetAvailableBooksQuery, SearchCatalogBooksQuery)
-└── EventHandler/  ← Reagują na eventy z innych BC
+├── Command/
+│   ├── BorrowBookCommand.php           ← DTO (dane wejściowe)
+│   ├── BorrowBookCommandHandler.php    ← Logika (__invoke)
+│   └── ...
+├── Query/                              ← DTO + logika razem (pragmatycznie)
+│   ├── GetAvailableBooksQuery.php
+│   └── ...
+└── EventHandler/                       ← Reagują na eventy z innych BC
 ```
+
+**Dlaczego Query nie ma osobnego Handlera?**
+- Odczyty są prostsze niż zapisy
+- Mniej boilerplate'u
+- Pragmatyczne podejście - rozdzielenie tylko tam, gdzie ma sens
 
 #### Domain Events - dwukierunkowa komunikacja
 
@@ -1283,14 +1333,14 @@ Application/
 │  CATALOG                              LENDING                    │
 │  ┌─────────────────┐                  ┌─────────────────┐       │
 │  │ AddBookToCalog  │                  │ CreateBook      │       │
-│  │ Command         │─────────────────►│ EventHandler    │       │
+│  │ CommandHandler  │─────────────────►│ EventHandler    │       │
 │  │                 │ BookAddedTo      │                 │       │
 │  │                 │ CatalogEvent     │ (tworzy Book)   │       │
 │  └─────────────────┘                  └─────────────────┘       │
 │                                                                  │
 │  ┌─────────────────┐                  ┌─────────────────┐       │
 │  │ UpdatePopularity│                  │ BorrowBook      │       │
-│  │ EventHandler    │◄─────────────────│ Command         │       │
+│  │ EventHandler    │◄─────────────────│ CommandHandler  │       │
 │  │                 │ BookBorrowed     │                 │       │
 │  │ (zwiększa       │ Event            │                 │       │
 │  │  popularity)    │                  │                 │       │
@@ -1308,12 +1358,12 @@ Application/
 
 ### Co można dodać:
 
-1. **CQRS - osobne modele read/write**
+1. **Read Models - osobne modele do odczytu**
 
-   Obecnie Query zwraca encje domenowe. W pełnym CQRS:
+   Obecnie Query zwraca encje domenowe. W pełnym CQRS z Read Models:
    ```
-   Command: Book (pełna encja z logiką biznesową)
-   Query:   BookReadModel (prosty DTO zoptymalizowany do wyświetlania)
+   Command → Handler → Book (pełna encja z logiką biznesową)
+   Query → BookReadModel (prosty DTO zoptymalizowany do wyświetlania)
    ```
 
    Korzyść: Query może czytać z osobnej, zdenormalizowanej bazy (np. Elasticsearch).

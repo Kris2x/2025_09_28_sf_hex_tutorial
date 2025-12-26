@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Lending\Presentation\Controller;
 
 use App\Lending\Application\Command\BorrowBookCommand;
+use App\Lending\Application\Command\BorrowBookCommandHandler;
 use App\Lending\Application\Command\ReturnBookCommand;
+use App\Lending\Application\Command\ReturnBookCommandHandler;
 use App\Lending\Application\Query\GetAvailableBooksQuery;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -17,10 +19,10 @@ use Symfony\Component\Routing\Annotation\Route;
  *
  * Controller jest "cienki" - tylko:
  * 1. Parsuje request HTTP
- * 2. Wywołuje Command lub Query
+ * 2. Tworzy Command i wywołuje Handler
  * 3. Formatuje response
  *
- * Logika biznesowa jest w Command/Query i Domenie!
+ * Logika biznesowa jest w Handlerach i Domenie!
  */
 #[Route('/api/books')]
 final class BookController extends AbstractController
@@ -45,7 +47,7 @@ final class BookController extends AbstractController
     public function borrowBook(
         string $bookId,
         Request $request,
-        BorrowBookCommand $command
+        BorrowBookCommandHandler $handler
     ): JsonResponse {
         $data = json_decode($request->getContent(), true);
 
@@ -54,7 +56,8 @@ final class BookController extends AbstractController
         }
 
         try {
-            $command->execute($data['userId'], $bookId);
+            $command = new BorrowBookCommand($data['userId'], $bookId);
+            $handler($command);
             return $this->json(['message' => 'Book borrowed successfully']);
         } catch (\DomainException $e) {
             return $this->json(['error' => $e->getMessage()], 400);
@@ -65,7 +68,7 @@ final class BookController extends AbstractController
     public function returnBook(
         string $bookId,
         Request $request,
-        ReturnBookCommand $command
+        ReturnBookCommandHandler $handler
     ): JsonResponse {
         $data = json_decode($request->getContent(), true);
 
@@ -74,7 +77,8 @@ final class BookController extends AbstractController
         }
 
         try {
-            $fine = $command->execute($data['userId'], $bookId);
+            $command = new ReturnBookCommand($data['userId'], $bookId);
+            $fine = $handler($command);
             return $this->json([
                 'message' => 'Book returned successfully',
                 'fine' => $fine
