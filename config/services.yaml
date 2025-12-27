@@ -61,6 +61,17 @@ services:
         tags:
             - { name: messenger.message_handler, bus: command.bus }
 
+    # === EVENT HANDLERS (rejestracja bez atrybutów) ===
+    # Lending BC - reaguje na eventy z Catalog
+    App\Lending\Application\EventHandler\CreateBookOnBookAddedToCatalog:
+        tags:
+            - { name: messenger.message_handler, bus: event.bus }
+
+    # Catalog BC - reaguje na eventy z Lending
+    App\Catalog\Application\EventHandler\UpdateBookPopularityOnBookBorrowed:
+        tags:
+            - { name: messenger.message_handler, bus: event.bus }
+
     # === CATALOG BOUNDED CONTEXT ===
     # Repository bindings (Ports → Adapters)
     App\Catalog\Domain\Repository\CatalogBookRepositoryInterface:

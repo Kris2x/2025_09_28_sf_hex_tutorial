@@ -6,7 +6,6 @@ namespace App\Catalog\Application\EventHandler;
 
 use App\Lending\Domain\Event\BookBorrowedEvent;
 use Psr\Log\LoggerInterface;
-use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 /**
  * Event Handler: Aktualizuje popularność książki gdy została wypożyczona.
@@ -19,8 +18,9 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
  * W przyszłości można dodać więcej handlerów bez zmiany Lending:
  * - SendNotificationOnBookBorrowed (Notification module)
  * - UpdateStatisticsOnBookBorrowed (Reporting module)
+ *
+ * Handler zarejestrowany w services.yaml (bez atrybutów Symfony).
  */
-#[AsMessageHandler(bus: 'event.bus')]
 final readonly class UpdateBookPopularityOnBookBorrowed
 {
     public function __construct(

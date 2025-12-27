@@ -8,7 +8,6 @@ use App\Catalog\Domain\Event\BookAddedToCatalogEvent;
 use App\Lending\Domain\Entity\Book;
 use App\Lending\Domain\Repository\BookRepositoryInterface;
 use App\Lending\Domain\ValueObject\BookId;
-use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
 /**
  * Event Handler: Tworzy książkę w Lending gdy zostanie dodana do Catalog.
@@ -21,8 +20,9 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
  * - Lending zarządza wypożyczeniami (dostępność, kto wypożyczył)
  * - Oba moduły mają WŁASNE encje Book z różnymi polami
  * - Synchronizacja odbywa się przez eventy
+ *
+ * Handler zarejestrowany w services.yaml (bez atrybutów Symfony).
  */
-#[AsMessageHandler(bus: 'event.bus')]
 final readonly class CreateBookOnBookAddedToCatalog
 {
     public function __construct(

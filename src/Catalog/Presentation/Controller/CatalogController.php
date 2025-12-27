@@ -5,10 +5,10 @@ declare(strict_types=1);
 namespace App\Catalog\Presentation\Controller;
 
 use App\Catalog\Application\Command\AddBookToCatalogCommand;
-use App\Catalog\Application\Command\AddBookToCatalogCommandHandler;
 use App\Catalog\Application\Query\GetCatalogBookDetailsQuery;
 use App\Catalog\Application\Query\GetCategoriesQuery;
 use App\Catalog\Application\Query\SearchCatalogBooksQuery;
+use App\Shared\Application\Bus\CommandBusInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -17,6 +17,9 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/api/catalog')]
 final class CatalogController extends AbstractController
 {
+    public function __construct(
+        private readonly CommandBusInterface $commandBus
+    ) {}
     /**
      * GET /api/catalog/books
      * Wyszukuje książki lub zwraca najpopularniejsze.
@@ -108,15 +111,13 @@ final class CatalogController extends AbstractController
      *
      * Ten endpoint:
      * 1. Tworzy Command z danych requestu
-     * 2. Handler tworzy książkę w Catalog BC
-     * 3. Handler publikuje BookAddedToCatalogEvent
+     * 2. Wysyła Command przez CommandBus
+     * 3. Handler tworzy książkę i publikuje BookAddedToCatalogEvent
      * 4. Lending BC nasłuchuje i tworzy swoją wersję Book
      */
     #[Route('/books', methods: ['POST'])]
-    public function addBook(
-        Request $request,
-        AddBookToCatalogCommandHandler $handler
-    ): JsonResponse {
+    public function addBook(Request $request): JsonResponse
+    {
         $data = json_decode($request->getContent(), true);
 
         $requiredFields = ['bookId', 'title', 'isbn', 'authorId', 'authorFirstName', 'authorLastName', 'publishedAt'];
@@ -138,7 +139,7 @@ final class CatalogController extends AbstractController
                 description: $data['description'] ?? null
             );
 
-            $book = $handler($command);
+            $book = $this->commandBus->dispatch($command);
 
             return $this->json([
                 'message' => 'Book added to catalog',
