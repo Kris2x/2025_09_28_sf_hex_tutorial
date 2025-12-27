@@ -37,6 +37,30 @@ services:
         arguments:
             $eventBus: '@event.bus'
 
+    # Command Bus binding (Port → Adapter)
+    App\Shared\Application\Bus\CommandBusInterface:
+        alias: App\Shared\Infrastructure\Messenger\MessengerCommandBus
+
+    # MessengerCommandBus używa command.bus
+    App\Shared\Infrastructure\Messenger\MessengerCommandBus:
+        arguments:
+            $commandBus: '@command.bus'
+
+    # === COMMAND HANDLERS (rejestracja bez atrybutów) ===
+    # Catalog BC
+    App\Catalog\Application\Command\AddBookToCatalogCommandHandler:
+        tags:
+            - { name: messenger.message_handler, bus: command.bus }
+
+    # Lending BC
+    App\Lending\Application\Command\BorrowBookCommandHandler:
+        tags:
+            - { name: messenger.message_handler, bus: command.bus }
+
+    App\Lending\Application\Command\ReturnBookCommandHandler:
+        tags:
+            - { name: messenger.message_handler, bus: command.bus }
+
     # === CATALOG BOUNDED CONTEXT ===
     # Repository bindings (Ports → Adapters)
     App\Catalog\Domain\Repository\CatalogBookRepositoryInterface:

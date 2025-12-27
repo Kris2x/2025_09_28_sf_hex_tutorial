@@ -20,6 +20,11 @@ framework:
         buses:
             messenger.bus.default: []
 
+            # Command Bus - do obsługi Commands (CQRS)
+            command.bus:
+                middleware:
+                    - doctrine_transaction
+
             # Event Bus - do publikowania Domain Events
             event.bus:
                 default_middleware:
