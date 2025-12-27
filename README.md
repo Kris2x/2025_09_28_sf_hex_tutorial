@@ -1356,6 +1356,96 @@ Application/
 
 ---
 
+### Potencjalne ulepszenia (Clean Architecture / DDD / CQRS)
+
+Obecna implementacja jest **pragmatyczna** - działa poprawnie, ale zawiera kompromisy.
+Poniżej opisano co można ulepszyć dla pełnej zgodności z wzorcami.
+
+#### 1. Atrybuty Doctrine ORM w encjach domenowych
+
+**Problem:** Warstwa Domain zawiera zależność od infrastruktury (Doctrine ORM).
+
+```php
+// Obecny stan - domena zna Doctrine
+#[ORM\Entity]
+class Book { }
+```
+
+**Rozwiązanie:** Przenieść mapping do XML/YAML w `config/doctrine/`.
+
+| Podejście | Zalety | Wady |
+|-----------|--------|------|
+| Atrybuty (obecne) | Prostsze, wszystko w jednym miejscu | Domena zależy od ORM |
+| XML/YAML mapping | Czysta domena, pełna przenośność | Więcej plików |
+
+#### 2. Query zwraca encje domenowe zamiast Read Models
+
+**Problem:** W CQRS strona Query powinna zwracać Read Models (DTO), nie encje.
+
+```php
+// Obecny stan - zwraca encje
+public function execute(): array {
+    return $this->bookRepository->findAvailable();  // Book[]
+}
+```
+
+**Rozwiązanie:** Dedykowane DTO dla odczytów:
+
+```php
+// Read Model
+final readonly class BookListItem {
+    public function __construct(
+        public string $id,
+        public string $title,
+        public bool $isAvailable
+    ) {}
+}
+```
+
+| Podejście | Zalety | Wady |
+|-----------|--------|------|
+| Encje (obecne) | Mniej kodu | Brak separacji Read/Write |
+| Read Models | Optymalizacja odczytów, separacja | Więcej DTO |
+
+#### 3. Eventy tworzone w Handlerze zamiast w Encji
+
+**Problem:** Handler wie, jakie eventy publikować. W DDD to encja powinna wiedzieć.
+
+```php
+// Obecny stan - handler tworzy event
+$book->borrow();
+$this->eventPublisher->publish(new BookBorrowedEvent(...));
+```
+
+**Rozwiązanie (wzorzec Aggregate Root):**
+
+```php
+// Encja zbiera eventy
+class Book {
+    use AggregateRoot;
+
+    public function borrow(): void {
+        $this->isAvailable = false;
+        $this->recordEvent(new BookBorrowedEvent(...));
+    }
+}
+
+// Handler tylko publikuje
+foreach ($book->pullDomainEvents() as $event) {
+    $this->eventPublisher->publish($event);
+}
+```
+
+| Podejście | Zalety | Wady |
+|-----------|--------|------|
+| Handler (obecne) | Prostsze | Logika eventów poza domeną |
+| Aggregate Root | Encja jest "źródłem prawdy" | Więcej kodu w encji |
+
+**Rekomendacja:** Dla małych/średnich projektów pragmatyczne podejście jest wystarczające.
+Szczegóły w pliku `CLAUDE.md`.
+
+---
+
 ### Co można dodać:
 
 1. **Read Models - osobne modele do odczytu**
