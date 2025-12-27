@@ -9,6 +9,7 @@ use App\Lending\Application\Command\BorrowBookCommandHandler;
 use App\Lending\Application\Command\ReturnBookCommand;
 use App\Lending\Application\Command\ReturnBookCommandHandler;
 use App\Lending\Application\Query\GetAvailableBooksQuery;
+use DomainException;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -59,7 +60,7 @@ final class BookController extends AbstractController
             $command = new BorrowBookCommand($data['userId'], $bookId);
             $handler($command);
             return $this->json(['message' => 'Book borrowed successfully']);
-        } catch (\DomainException $e) {
+        } catch (DomainException $e) {
             return $this->json(['error' => $e->getMessage()], 400);
         }
     }
@@ -83,7 +84,7 @@ final class BookController extends AbstractController
                 'message' => 'Book returned successfully',
                 'fine' => $fine
             ]);
-        } catch (\DomainException $e) {
+        } catch (DomainException $e) {
             return $this->json(['error' => $e->getMessage()], 400);
         }
     }
